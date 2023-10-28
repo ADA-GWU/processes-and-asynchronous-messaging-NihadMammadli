@@ -5,3 +5,4 @@ first ever commit to the readme file
 can't do much as I have exams
 one exam passed
 Today one more exam
+One more exam passed
