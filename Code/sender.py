@@ -1,7 +1,11 @@
 import threading
 import time
 import psycopg2
+import os
+from dotenv import load_dotenv
 from queue import Queue
+
+load_dotenv()
 
 def send_message(sender_name, message, db_connection, db_cursor):
     query = "INSERT INTO ASYNC_MESSAGE (SENDER_NAME, MESSAGE, SENT_TIME) VALUES (%s, %s, %s)"
@@ -10,6 +14,7 @@ def send_message(sender_name, message, db_connection, db_cursor):
 
     db_cursor.execute(query, data)
     db_connection.commit()
+
 
 def sender_thread(sender_name, db_connection, db_cursor, message_queue):
     while True:
@@ -23,19 +28,19 @@ def sender_thread(sender_name, db_connection, db_cursor, message_queue):
         send_message(sender_name, message, db_connection, db_cursor)
         message_queue.task_done()
 
+
 conn = psycopg2.connect(
-    database="postgres",
-    # user="myuser",
-    # password="mypassword", 
-    user="nihad",
-    password="nihad",
-    host="localhost",
-    port="5432"
+    database=os.getenv('DB_NAME'),
+    user=os.getenv('DB_USER'),
+    password=os.getenv('DB_PASSWORD'),
+    host=os.getenv('DB_HOST'),
+    port=os.getenv('DB_PORT')
 )
 
 cur = conn.cursor()
 
-db_server_ips = ["127.0.0.1"] 
+with open('db_ips.txt', 'r') as file:
+    db_server_ips = file.read().splitlines()
 
 message_queue = Queue()
 
