@@ -30,34 +30,38 @@ def read_message(sender_name, db_connection, db_cursor):
         else:
             print("Error while fetching message:", e)
 
-def reader_thread(db_connection, db_cursor):
+def reader_thread(db_connection, db_cursor, server_ip):
+    sender_name = os.getenv('Your_name')
     while True:
-        for i in range(len(db_server_ips)):
-            sender_name = f"Sender_{i}"
-            read_message(sender_name, db_connection, db_cursor)
-            time.sleep(1)  
+        read_message(sender_name, db_connection, db_cursor)
+        time.sleep(1)  
 
-conn = psycopg2.connect(
-    database=os.getenv('DB_NAME'),
-    user=os.getenv('DB_USER'),
-    password=os.getenv('DB_PASSWORD'),
-    host=os.getenv('DB_HOST'),
-    port=os.getenv('DB_PORT')
-)
-
-cur = conn.cursor()
-
-with open('db_ips.txt', 'r') as file:
+with open('Code/db_ips.txt', 'r') as file:
     db_server_ips = file.read().splitlines()
 
-reader_threads = []
-for _ in range(5):  
-    reader_thread_instance = threading.Thread(target=reader_thread, args=(conn, cur))
-    reader_threads.append(reader_thread_instance)
+connections = []
+cursors = []
+
+for i, ip in enumerate(db_server_ips):
+    conn = psycopg2.connect(
+        database=os.getenv(f'DB_NAME_{i+1}'), 
+        user=os.getenv(f'DB_USER_{i+1}'),
+        password=os.getenv(f'DB_PASSWORD_{i+1}'),
+        host=ip,
+        port=os.getenv(f'DB_PORT_{i+1}')
+    )
+    cur = conn.cursor()
+    connections.append(conn)
+    cursors.append(cur)
+    reader_thread_instance = threading.Thread(target=reader_thread, args=(conn, cur, ip))
     reader_thread_instance.start()
 
-for reader_thread_instance in reader_threads:
-    reader_thread_instance.join()
+for t in threading.enumerate():
+    if t != threading.current_thread():
+        t.join()
 
-cur.close()
-conn.close()
+for cur in cursors:
+    cur.close()
+
+for conn in connections:
+    conn.close()

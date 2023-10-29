@@ -15,7 +15,6 @@ def send_message(sender_name, message, db_connection, db_cursor):
     db_cursor.execute(query, data)
     db_connection.commit()
 
-
 def sender_thread(sender_name, db_connection, db_cursor, message_queue):
     while True:
         user_input = input("Enter a message (or 'exit' to quit): ")
@@ -23,36 +22,40 @@ def sender_thread(sender_name, db_connection, db_cursor, message_queue):
             break
         
         message_queue.put(user_input)  
-
         message = message_queue.get()
         send_message(sender_name, message, db_connection, db_cursor)
         message_queue.task_done()
 
-
-conn = psycopg2.connect(
-    database=os.getenv('DB_NAME'),
-    user=os.getenv('DB_USER'),
-    password=os.getenv('DB_PASSWORD'),
-    host=os.getenv('DB_HOST'),
-    port=os.getenv('DB_PORT')
-)
-
-cur = conn.cursor()
-
-with open('db_ips.txt', 'r') as file:
+with open('Code/db_ips.txt', 'r') as file:
     db_server_ips = file.read().splitlines()
 
-message_queue = Queue()
+all_connections = []
+all_cursors = []
+all_threads = []
 
-sender_threads = []
 for i, db_ip in enumerate(db_server_ips):
-    sender_name = f"Nihad"
+    conn = psycopg2.connect(
+        database=os.getenv(f'DB_NAME_{i+1}'),
+        user=os.getenv(f'DB_USER_{i+1}'),
+        password=os.getenv(f'DB_PASSWORD_{i+1}'),
+        host=os.getenv(f'DB_HOST_{i+1}'),
+        port=os.getenv(f'DB_PORT_{i+1}')
+    )
+    cur = conn.cursor()
+    all_connections.append(conn)
+    all_cursors.append(cur)
+
+    sender_name = os.getenv('Your_name')
+    message_queue = Queue()
     sender_thread_instance = threading.Thread(target=sender_thread, args=(sender_name, conn, cur, message_queue))
-    sender_threads.append(sender_thread_instance)
+    all_threads.append(sender_thread_instance)
     sender_thread_instance.start()
 
-for sender_thread_instance in sender_threads:
-    sender_thread_instance.join()
+for thread in all_threads:
+    thread.join()
 
-cur.close()
-conn.close()
+for cur in all_cursors:
+    cur.close()
+
+for conn in all_connections:
+    conn.close()
